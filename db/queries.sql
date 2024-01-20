@@ -1,4 +1,3 @@
-
 -- All Departments
 SELECT id AS Department_ID, name AS Department_Name
 FROM department;
@@ -9,7 +8,7 @@ FROM role
 JOIN department ON role.department_id = department.id;
 
 -- All Employees
-SELECT e.id AS Employee_ID, e.first_name AS First_Name, e.last_name AS Last_Name, r.title AS Job_Title, d.name AS Department_Name, r.salary AS Salary, m.last_name AS Manager 
+SELECT e.id AS Employee_ID, e.first_name AS First_Name, e.last_name AS Last_Name, r.title AS Job_Title, d.name AS Department_Name, r.salary AS Salary, CONCAT(m.first_name, ' ', m.last_name) AS Manager 
 FROM employee e
 JOIN role r ON e.role_id = r.id 
 JOIN department d ON r.department_id = d.id
