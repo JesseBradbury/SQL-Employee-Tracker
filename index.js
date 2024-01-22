@@ -56,9 +56,37 @@ function promptMenu() {
                 case "View all employees":
                     allEmployeesQuery();
                     break;
+                case "Add a department":
+                    addDepartmentQuery()
             }
         });
 }
+
+function addDepartmentQuery() {
+    inquirer
+        .prompt([
+            {
+                name: "department_name",
+                type: "input",
+                message: "Department name?",
+            },
+        ])
+        .then((response) => {
+            const insertDepartmentSql = 'INSERT INTO department (name) VALUES (?)';
+
+            connection.query(insertDepartmentSql, [response.department_name], (error, results) => {
+                if (error) {
+                    console.log("Error inserting into db: ", error);
+                } else {
+                    console.log("Added ", response);
+
+                }
+
+                promptMenu();
+            })
+        })
+}
+
 
 function allDepartmentsQuery() {
     connection.query('SELECT id AS Department_ID, name AS Department_Name FROM department;', (error, results) => {
