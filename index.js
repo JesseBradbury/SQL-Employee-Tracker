@@ -67,156 +67,274 @@ function promptMenu() {
                 case "Add an employee":
                     addEmployeeQuery()
                     break;
+                case "Update an employee role":
+                    updateEmployeeQuery()
+                    break;
             }
         });
 }
 
-function addEmployeeQuery() {
+function updateEmployeeQuery() {
 
-    inquirer
-        .prompt([
-            {
-                name: "employee_firstName",
-                type: "input",
-                message: "Employee first name?",
-            },
-            {
-                name: "employee_lastName",
-                type: "input",
-                message: "Employee last name?",
-            },
-            {
-                name: "employee_role",
-                type: "input",
-                message: "What role are they?",
-            },
-            {
-                name: "employee_manager",
-                type: "input",
-                message: "Manager last name?",
-            },
-        ])
-        .then((response) => {
+    const employeeListSql = "SELECT CONCAT(first_name, ' ', last_name) AS employee_name FROM employee";
 
-            const insertEmployeeSql = "INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)";
+    connection.query(employeeListSql, (error, employeeList) => {
+        if (error) {
+            console.log("Error retreiving employee list: ", error);
+            promptMenu();
+        } else {
+            const employeeChoices = employeeList.map((employee) => employee.employee_name);
 
-            selectRoleIdSql = "SELECT id FROM role WHERE title = ?";
-            selectManagerIdSql = "SELECT id FROM employee WHERE last_name = ?";
+            const roleOptionsSql = 'SELECT title FROM role';
 
-            // This gets role Id based on the role name. 
-            connection.query(selectRoleIdSql, [response.employee_role], (error, roleResults) => {
+            connection.query(roleOptionsSql, (error, roleResults) => {
                 if (error) {
-                    console.log("Error retieving role ID:", error);
+                    console.log("Error loading role options: ", error);
                     promptMenu();
                 } else {
-                    // This checks to make sure we retreived the Id from the role
-                    const roleId = roleResults[0] ? roleResults[0].id : null;
+                    const roleChoices = roleResults.map((role) => role.title);
 
-                    if (roleId !== null) {
+                    inquirer
+                    .prompt([
+                        {
+                            name: "employee",
+                            type: "list",
+                            message: "Select the employee to update: ",
+                            choices: employeeChoices,
+                        },
+                        {
+                            name: "new_role",
+                            type: "list",
+                            message: "Select a new role: ",
+                            choices: roleChoices,
+                        }
+                    ])
+                    .then((response) => {
+                        const updateEmployeeRoleSql = "UPDATE employee SET role_id = ? WHERE CONCAT(first_name, ' ', last_name) = ?";
 
-                        if (response.employee_manager.trim() !== '') {
-                            // This will retreive the manager_id based on manager last name.
-                            connection.query(selectManagerIdSql, [response.employee_manager], (error, managerResults) => {
+                        const roleIdSql = "SELECT id FROM role WHERE title = ?";
+
+                        connection.query(roleIdSql, [response.new_role], (error, roleIdResults) => {
+                            if (error) {
+                                console.log("Error retreiving role ID: ", error);
+                                promptMenu();
+                            } else {
+                                const roleId = roleIdResults[0] ? roleIdResults[0].id : null;
+
+                                connection.query(updateEmployeeRoleSql,[roleId, response.employee], (error, results) => {
+                                    if (error) {
+                                        console.log("Error updating employee role: ", error);
+                                    } else {
+                                        console.log("Updated employee role for:", response.employee);
+                                    }
+                                    promptMenu();
+                                }
+                                
+                                );
+                            }
+                        });
+                    });
+
+                }
+            })
+
+        }
+    })
+}
+
+
+
+function addEmployeeQuery() {
+
+    const roleOptionsSql = "SELECT title FROM role";
+
+    connection.query(roleOptionsSql, (error, roleResults) => {
+        if (error) {
+            console.log("Error retreiving roles: ", error);
+            promptMenu();
+        } else {
+            const roleChoices = roleResults.map((role) => role.title);
+
+            const managerOptionsSql = 'SELECT CONCAT(first_name, " ", last_name) AS manager_name FROM employee';
+
+            connection.query(managerOptionsSql, (error, managerResults) => {
+                if (error) {
+                    console.log("Error retreiving manager options: ", error);
+                    promptMenu();
+                } else {
+                    const managerChoices = managerResults.map((manager) => manager.manager_name);
+
+                    managerChoices.push('null');
+
+                    inquirer
+                        .prompt([
+                            {
+                                name: "employee_firstName",
+                                type: "input",
+                                message: "Employee first name?",
+                            },
+                            {
+                                name: "employee_lastName",
+                                type: "input",
+                                message: "Employee last name?",
+                            },
+                            {
+                                name: "employee_role",
+                                type: "list",
+                                message: "Select role: ",
+                                choices: roleChoices
+                            },
+                            {
+                                name: "employee_manager",
+                                type: "list",
+                                message: "Select Manager: ",
+                                choices: managerChoices,
+                            },
+                        ])
+                        .then((response) => {
+
+                            const insertEmployeeSql = "INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)";
+
+                            selectRoleIdSql = "SELECT id FROM role WHERE title = ?";
+
+                            // This gets role Id based on the role name. 
+                            connection.query(selectRoleIdSql, [response.employee_role], (error, roleResults) => {
                                 if (error) {
-                                    console.log("Error retrieving manager ID: ", error);
+                                    console.log("Error retieving role ID:", error);
                                     promptMenu();
                                 } else {
-                                    const managerId = managerResults[0] ? managerResults[0].id : null;
+                                    // This checks to make sure we retreived the Id from the role
+                                    const roleId = roleResults[0] ? roleResults[0].id : null;
 
-                                    if (managerId !== null) {
-                                        connection.query(
-                                            insertEmployeeSql, [response.employee_firstName, response.employee_lastName, roleId, managerId], (error, results) => {
+                                    if (roleId !== null) {
+
+                                        if (response.employee_manager !== 'null') {
+                                            selectManagerIdSql = 'SELECT id FROM employee WHERE CONCAT(first_name, " ", last_name) = ?';
+                                            // This will retreive the manager_id based on manager last name.
+                                            connection.query(selectManagerIdSql, [response.employee_manager], (error, managerResults) => {
+                                                if (error) {
+                                                    console.log("Error retrieving manager ID: ", error);
+                                                    promptMenu();
+                                                } else {
+                                                    const managerId = managerResults[0] ? managerResults[0].id : null;
+
+                                                    if (managerId !== null) {
+                                                        connection.query(
+                                                            insertEmployeeSql, [response.employee_firstName, response.employee_lastName, roleId, managerId], (error, results) => {
+                                                                if (error) {
+                                                                    console.log("Error inserting into db: ", error);
+                                                                } else {
+                                                                    console.log("Added employee: ", response.employee_firstName, response.employee_lastName);
+                                                                }
+
+                                                                promptMenu();
+                                                            }
+                                                        );
+                                                    } else {
+                                                        console.log("Manager not found. Employee not added.");
+                                                        promptMenu();
+                                                    }
+                                                }
+                                            });
+                                        } else {
+                                            connection.query(insertEmployeeSql, [response.employee_firstName, response.employee_lastName, roleId, null], (error, results) => {
                                                 if (error) {
                                                     console.log("Error inserting into db: ", error);
                                                 } else {
-                                                    console.log("Added employee: ", response.employee_firstName, response.employee_lastName);
+                                                    console.log("Added employee:", response.employee_firstName, response.employee_lastName);
                                                 }
 
                                                 promptMenu();
-                                            }
-                                        );
+                                            })
+                                        }
+
                                     } else {
-                                        console.log("Manager not found. Employee not added.");
+                                        console.log("Role not found. Employee not added.");
                                         promptMenu();
                                     }
                                 }
                             });
-                        } else {
-                            connection.query(insertEmployeeSql, [response.employee_firstName, response.employee_lastName, roleId, null], (error, results) => {
-                                if (error) {
-                                    console.log("Error inserting into db: ", error);
-                                } else {
-                                    console.log("Added employee:", response.employee_firstName, response.employee_lastName);
-                                }
 
-                                promptMenu();
-                            })
-                        }
+                        });
 
-                    } else {
-                        console.log("Role not found. Employee not added.");
-                        promptMenu();
-                    }
                 }
-            });
+            })
 
-        });
+        }
+    })
+
+
+
 }
 
 
 function addRoleQuery() {
-    // This selects the department ID by the name that the user inputs. 
-    const selectDepartmentIdSql = 'SELECT id FROM department WHERE name = ?';
 
-    inquirer
-        .prompt([
-            {
-                name: "role_title",
-                type: "input",
-                message: "Role title?",
-            },
-            {
-                name: "role_salary",
-                type: "number",
-                message: "Role salary?",
-            },
-            {
-                name: "role_department",
-                type: "input",
-                message: "Which department is it in?",
-            },
-        ])
-        .then((response) => {
-            // This gets department ID based on the department name. 
-            connection.query(selectDepartmentIdSql, [response.role_department], (error, departmentResults) => {
-                if (error) {
-                    console.log("Error retieving department ID:", error);
-                    promptMenu();
-                } else {
-                    // This checks to make sure we retreived the Id from the department
-                    const departmentId = departmentResults[0] ? departmentResults[0].id : null;
+    const departmentOptionsSql = 'SELECT name FROM department';
 
-                    if (departmentId !== null) {
-                        // This is the SQL for the adding of a new role. 
-                        const insertRoleSql = 'INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)';
+    connection.query(departmentOptionsSql, (error, departmentResults) => {
+        if (error) {
+            console.log("Error loading department options: ", error);
+            promptMenu();
+        } else {
+            const departmentChoices = departmentResults.map((department) => department.name);
 
-                        connection.query(insertRoleSql, [response.role_title, response.role_salary, departmentId], (error, results) => {
-                            if (error) {
-                                console.log("Error inserting into db: ", error);
-                            } else {
-                                console.log("Added role: ", response.role_title);
-
-                            }
+            inquirer
+                .prompt([
+                    {
+                        name: "role_title",
+                        type: "input",
+                        message: "Role title?",
+                    },
+                    {
+                        name: "role_salary",
+                        type: "number",
+                        message: "Role salary?",
+                    },
+                    {
+                        name: "role_department",
+                        type: "list",
+                        message: "Select Department:",
+                        choices: departmentChoices,
+                    },
+                ])
+                .then((response) => {
+                    const insertRoleSql = 'INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)';
+                    const selectDepartmentIdSql = 'SELECT id FROM department WHERE name = ?';
+                    // This gets department ID based on the department name. 
+                    connection.query(selectDepartmentIdSql, [response.role_department], (error, departmentResults) => {
+                        if (error) {
+                            console.log("Error retieving department ID:", error);
                             promptMenu();
-                        })
-                    } else {
-                        console.log("Department not found. Role not added.");
-                        promptMenu();
-                    }
-                }
-            });
+                        } else {
+                            // This checks to make sure we retreived the Id from the department
+                            const departmentId = departmentResults[0] ? departmentResults[0].id : null;
 
-        });
+                            if (departmentId !== null) {
+                                // This is the SQL for the adding of a new role. 
+
+                                connection.query(insertRoleSql, [response.role_title, response.role_salary, departmentId], (error, results) => {
+                                    if (error) {
+                                        console.log("Error inserting into db: ", error);
+                                    } else {
+                                        console.log("Added role: ", response.role_title);
+
+                                    }
+                                    promptMenu();
+                                })
+                            } else {
+                                console.log("Department not found. Role not added.");
+                                promptMenu();
+                            }
+                        }
+                    });
+
+                });
+
+
+        }
+    })
+
 }
 
 function addDepartmentQuery() {
