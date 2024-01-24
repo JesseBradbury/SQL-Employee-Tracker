@@ -1,5 +1,6 @@
 const inquirer = require('inquirer');
 const mysql = require('mysql2')
+// const queryFunctions = require("./lib/query-functions.js")
 
 const connection = mysql.createConnection({
     host: 'localhost',
@@ -50,6 +51,7 @@ function promptMenu() {
                 case "View all departments":
                     allDepartmentsQuery();
                     break;
+
                 case "View all roles":
                     allRolesQuery();
                     break;
@@ -58,7 +60,162 @@ function promptMenu() {
                     break;
                 case "Add a department":
                     addDepartmentQuery()
+                    break;
+                case "Add a role":
+                    addRoleQuery()
+                    break;
+                case "Add an employee":
+                    addEmployeeQuery()
+                    break;
             }
+        });
+}
+
+function addEmployeeQuery() {
+
+    inquirer
+        .prompt([
+            {
+                name: "employee_firstName",
+                type: "input",
+                message: "Employee first name?",
+            },
+            {
+                name: "employee_lastName",
+                type: "input",
+                message: "Employee last name?",
+            },
+            {
+                name: "employee_role",
+                type: "input",
+                message: "What role are they?",
+            },
+            {
+                name: "employee_manager",
+                type: "input",
+                message: "Manager last name?",
+            },
+        ])
+        .then((response) => {
+
+            const insertEmployeeSql = "INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)";
+
+            selectRoleIdSql = "SELECT id FROM role WHERE title = ?";
+            selectManagerIdSql = "SELECT id FROM employee WHERE last_name = ?";
+
+            // This gets role Id based on the role name. 
+            connection.query(selectRoleIdSql, [response.employee_role], (error, roleResults) => {
+                if (error) {
+                    console.log("Error retieving role ID:", error);
+                    promptMenu();
+                } else {
+                    // This checks to make sure we retreived the Id from the role
+                    const roleId = roleResults[0] ? roleResults[0].id : null;
+
+                    if (roleId !== null) {
+
+                        if (response.employee_manager.trim() !== '') {
+                            // This will retreive the manager_id based on manager last name.
+                            connection.query(selectManagerIdSql, [response.employee_manager], (error, managerResults) => {
+                                if (error) {
+                                    console.log("Error retrieving manager ID: ", error);
+                                    promptMenu();
+                                } else {
+                                    const managerId = managerResults[0] ? managerResults[0].id : null;
+
+                                    if (managerId !== null) {
+                                        connection.query(
+                                            insertEmployeeSql, [response.employee_firstName, response.employee_lastName, roleId, managerId], (error, results) => {
+                                                if (error) {
+                                                    console.log("Error inserting into db: ", error);
+                                                } else {
+                                                    console.log("Added employee: ", response.employee_firstName, response.employee_lastName);
+                                                }
+
+                                                promptMenu();
+                                            }
+                                        );
+                                    } else {
+                                        console.log("Manager not found. Employee not added.");
+                                        promptMenu();
+                                    }
+                                }
+                            });
+                        } else {
+                            connection.query(insertEmployeeSql, [response.employee_firstName, response.employee_lastName, roleId, null], (error, results) => {
+                                if (error) {
+                                    console.log("Error inserting into db: ", error);
+                                } else {
+                                    console.log("Added employee:", response.employee_firstName, response.employee_lastName);
+                                }
+
+                                promptMenu();
+                            })
+                        }
+
+                    } else {
+                        console.log("Role not found. Employee not added.");
+                        promptMenu();
+                    }
+                }
+            });
+
+        });
+}
+
+
+function addRoleQuery() {
+    // This selects the department ID by the name that the user inputs. 
+    const selectDepartmentIdSql = 'SELECT id FROM department WHERE name = ?';
+
+    inquirer
+        .prompt([
+            {
+                name: "role_title",
+                type: "input",
+                message: "Role title?",
+            },
+            {
+                name: "role_salary",
+                type: "number",
+                message: "Role salary?",
+            },
+            {
+                name: "role_department",
+                type: "input",
+                message: "Which department is it in?",
+            },
+        ])
+        .then((response) => {
+            // This gets department ID based on the department name. 
+            connection.query(selectDepartmentIdSql, [response.role_department], (error, departmentResults) => {
+                if (error) {
+                    console.log("Error retieving department ID:", error);
+                    promptMenu();
+                } else {
+                    // This checks to make sure we retreived the Id from the department
+                    const departmentId = departmentResults[0] ? departmentResults[0].id : null;
+
+                    if (departmentId !== null) {
+                        // This is the SQL for the adding of a new role. 
+                        const insertRoleSql = 'INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)';
+
+                        connection.query(insertRoleSql, [response.role_title, response.role_salary, departmentId], (error, results) => {
+                            if (error) {
+                                console.log("Error inserting into db: ", error);
+                            } else {
+                                console.log("Added role: ", response.role_title);
+
+                            }
+                            promptMenu();
+                        })
+                    } else {
+                        console.log("Department not found. Role not added.");
+                        promptMenu();
+                    }
+                }
+            });
+
         });
 }
 
@@ -72,13 +229,14 @@ function addDepartmentQuery() {
             },
         ])
         .then((response) => {
+            // This is the SQL for adding a new department. 
             const insertDepartmentSql = 'INSERT INTO department (name) VALUES (?)';
 
             connection.query(insertDepartmentSql, [response.department_name], (error, results) => {
                 if (error) {
                     console.log("Error inserting into db: ", error);
                 } else {
-                    console.log("Added ", response);
+                    console.log("Added department: ", response.department_name);
 
                 }
 
@@ -89,6 +247,7 @@ function addDepartmentQuery() {
 
 
 function allDepartmentsQuery() {
+    // This SQL query selects all departments and displays them in a table. 
     connection.query('SELECT id AS Department_ID, name AS Department_Name FROM department;', (error, results) => {
         if (error) {
             console.log("Error getting query: ", error);
@@ -102,6 +261,7 @@ function allDepartmentsQuery() {
 }
 
 function allRolesQuery() {
+    // This SQL query selects all roles and displays them in a table. 
     connection.query('SELECT role.title AS Role_Title, role.id AS Role_ID, department.name AS Department_Name, role.salary AS Salary FROM role JOIN department ON role.department_id = department.id;', (error, results) => {
         if (error) {
             console.log("Error getting query: ", error);
@@ -115,6 +275,7 @@ function allRolesQuery() {
 }
 
 function allEmployeesQuery() {
+    // This SQL query selects all employees and their department, manager, and salary, and displays them in a table. It uses aliases to seperate the managers and make the complex query more organized. We use left join to take the name data from the previous column to display their manager. 
     connection.query('SELECT e.id AS Employee_ID, e.first_name AS First_Name, e.last_name AS Last_Name, r.title AS Job_Title, d.name AS Department_Name, r.salary AS Salary, CONCAT(m.first_name, " ", m.last_name) AS Manager FROM employee e JOIN role r ON e.role_id = r.id JOIN department d ON r.department_id = d.id LEFT JOIN employee m ON e.manager_id = m.id;', (error, results) => {
         if (error) {
             console.log("Error getting query: ", error);
@@ -136,4 +297,6 @@ function init() {
 
 }
 
+
 init();
+
