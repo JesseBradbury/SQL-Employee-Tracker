@@ -8,7 +8,6 @@ const connection = mysql.createConnection({
     database: 'tracker_db'
 })
 
-
 const introText = [{
     type: 'text',
     name: 'intro',
@@ -75,7 +74,7 @@ function promptMenu() {
 }
 
 function updateEmployeeQuery() {
-
+    // This gets a list of employees from the employee table to be used in the prompt questions.
     const employeeListSql = "SELECT CONCAT(first_name, ' ', last_name) AS employee_name FROM employee";
 
     connection.query(employeeListSql, (error, employeeList) => {
@@ -84,7 +83,7 @@ function updateEmployeeQuery() {
             promptMenu();
         } else {
             const employeeChoices = employeeList.map((employee) => employee.employee_name);
-
+            // This creates a list of available roles from the role table. 
             const roleOptionsSql = 'SELECT title FROM role';
 
             connection.query(roleOptionsSql, (error, roleResults) => {
@@ -93,47 +92,48 @@ function updateEmployeeQuery() {
                     promptMenu();
                 } else {
                     const roleChoices = roleResults.map((role) => role.title);
-
+                    // These are the questions for the update employee prompts. 
                     inquirer
-                    .prompt([
-                        {
-                            name: "employee",
-                            type: "list",
-                            message: "Select the employee to update: ",
-                            choices: employeeChoices,
-                        },
-                        {
-                            name: "new_role",
-                            type: "list",
-                            message: "Select a new role: ",
-                            choices: roleChoices,
-                        }
-                    ])
-                    .then((response) => {
-                        const updateEmployeeRoleSql = "UPDATE employee SET role_id = ? WHERE CONCAT(first_name, ' ', last_name) = ?";
-
-                        const roleIdSql = "SELECT id FROM role WHERE title = ?";
-
-                        connection.query(roleIdSql, [response.new_role], (error, roleIdResults) => {
-                            if (error) {
-                                console.log("Error retreiving role ID: ", error);
-                                promptMenu();
-                            } else {
-                                const roleId = roleIdResults[0] ? roleIdResults[0].id : null;
-
-                                connection.query(updateEmployeeRoleSql,[roleId, response.employee], (error, results) => {
-                                    if (error) {
-                                        console.log("Error updating employee role: ", error);
-                                    } else {
-                                        console.log("Updated employee role for:", response.employee);
-                                    }
-                                    promptMenu();
-                                }
-                                
-                                );
+                        .prompt([
+                            {
+                                name: "employee",
+                                type: "list",
+                                message: "Select the employee to update: ",
+                                choices: employeeChoices,
+                            },
+                            {
+                                name: "new_role",
+                                type: "list",
+                                message: "Select a new role: ",
+                                choices: roleChoices,
                             }
+                        ])
+                        .then((response) => {
+                            // This is the SQL for updating the employee with the values input by our user. 
+                            const updateEmployeeRoleSql = "UPDATE employee SET role_id = ? WHERE CONCAT(first_name, ' ', last_name) = ?";
+
+                            const roleIdSql = "SELECT id FROM role WHERE title = ?";
+
+                            connection.query(roleIdSql, [response.new_role], (error, roleIdResults) => {
+                                if (error) {
+                                    console.log("Error retreiving role ID: ", error);
+                                    promptMenu();
+                                } else {
+                                    const roleId = roleIdResults[0] ? roleIdResults[0].id : null;
+
+                                    connection.query(updateEmployeeRoleSql, [roleId, response.employee], (error, results) => {
+                                        if (error) {
+                                            console.log("Error updating employee role: ", error);
+                                        } else {
+                                            console.log("Updated employee role for:", response.employee);
+                                        }
+                                        promptMenu();
+                                    }
+
+                                    );
+                                }
+                            });
                         });
-                    });
 
                 }
             })
@@ -146,6 +146,7 @@ function updateEmployeeQuery() {
 
 function addEmployeeQuery() {
 
+    // Creates a list of roles to select when adding an employee
     const roleOptionsSql = "SELECT title FROM role";
 
     connection.query(roleOptionsSql, (error, roleResults) => {
@@ -155,6 +156,7 @@ function addEmployeeQuery() {
         } else {
             const roleChoices = roleResults.map((role) => role.title);
 
+            // Creates a list of managers to chosse for the new employee, or null. 
             const managerOptionsSql = 'SELECT CONCAT(first_name, " ", last_name) AS manager_name FROM employee';
 
             connection.query(managerOptionsSql, (error, managerResults) => {
@@ -165,7 +167,7 @@ function addEmployeeQuery() {
                     const managerChoices = managerResults.map((manager) => manager.manager_name);
 
                     managerChoices.push('null');
-
+                    // These are the questions it asks for making a new employee. 
                     inquirer
                         .prompt([
                             {
@@ -192,7 +194,7 @@ function addEmployeeQuery() {
                             },
                         ])
                         .then((response) => {
-
+// SQL for creating a new employee with the input given by the user. 
                             const insertEmployeeSql = "INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)";
 
                             selectRoleIdSql = "SELECT id FROM role WHERE title = ?";
