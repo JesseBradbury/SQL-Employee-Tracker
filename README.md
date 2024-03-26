@@ -14,7 +14,7 @@ This is a exercise in using SQL with node.js and mySQL2.
 
 
 ## Installation:
-This application requires using inquirer and mySQL2, use "npm i" to install the required dependencies. You can also seed the database to begin with our seeds.sql files usong mySQL. 
+This application requires using inquirer and mySQL2, use "npm i" to install the required dependencies. You can also seed the database to begin with our seeds.sql files using mySQL. 
 
 ## Usage:
 Invoke the file with "node index.js". It will then prompt you with the options for viewing and editing the data.  
